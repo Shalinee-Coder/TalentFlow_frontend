@@ -1,0 +1,496 @@
+{
+  "info": {
+    "name": "TalentFlow API",
+    "_postman_id": "c8e2b9fa-3901-49b8-a901-20967390a12f",
+    "description": "Comprehensive Postman collection for TalentFlow – Recruitment & Resume Management System.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000/api/v1", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "job_id", "value": "1", "type": "string" },
+    { "key": "application_id", "value": "1", "type": "string" },
+    { "key": "resume_id", "value": "1", "type": "string" },
+    { "key": "interview_id", "value": "1", "type": "string" },
+    { "key": "task_id", "value": "1", "type": "string" },
+    { "key": "submission_id", "value": "1", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Candidate",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"David Miller\",\n  \"email\": \"david.miller@example.com\",\n  \"password\": \"password\",\n  \"password_confirmation\": \"password\",\n  \"phone\": \"+1-555-8901\",\n  \"total_experience\": 4.0,\n  \"highest_education\": \"Bachelor\",\n  \"location\": \"Denver, CO\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/register", "host": ["{{base_url}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "Login (Admin / Recruiter / Candidate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.token) {",
+                  "    pm.collectionVariables.set('token', jsonData.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"recruiter1@talentflow.local\",\n  \"password\": \"password\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Get Authenticated User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/me", "host": ["{{base_url}}"], "path": ["auth", "me"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/logout", "host": ["{{base_url}}"], "path": ["auth", "logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "List Jobs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/jobs?status=published&department=Engineering",
+              "host": ["{{base_url}}"],
+              "path": ["jobs"],
+              "query": [
+                { "key": "status", "value": "published" },
+                { "key": "department", "value": "Engineering" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Job Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/jobs/{{job_id}}", "host": ["{{base_url}}"], "path": ["jobs", "{{job_id}}"] }
+          }
+        },
+        {
+          "name": "Create Job",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Principal Cloud Architect\",\n  \"department\": \"Infrastructure\",\n  \"description\": \"Lead enterprise multi-region cloud migrations.\",\n  \"required_experience\": 6.0,\n  \"salary_min\": 140000,\n  \"salary_max\": 180000,\n  \"application_deadline\": \"2026-12-31 23:59:59\",\n  \"status\": \"published\",\n  \"skills\": [\n    { \"skill_id\": 1, \"is_required\": true, \"weight\": 5 },\n    { \"skill_id\": 9, \"is_required\": true, \"weight\": 4 }\n  ]\n}"
+            },
+            "url": { "raw": "{{base_url}}/jobs", "host": ["{{base_url}}"], "path": ["jobs"] }
+          }
+        },
+        {
+          "name": "Update Job",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Principal Cloud Architect (Updated)\",\n  \"salary_max\": 190000\n}"
+            },
+            "url": { "raw": "{{base_url}}/jobs/{{job_id}}", "host": ["{{base_url}}"], "path": ["jobs", "{{job_id}}"] }
+          }
+        },
+        {
+          "name": "Update Job Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"closed\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/jobs/{{job_id}}/status", "host": ["{{base_url}}"], "path": ["jobs", "{{job_id}}", "status"] }
+          }
+        },
+        {
+          "name": "Delete Job",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/jobs/{{job_id}}", "host": ["{{base_url}}"], "path": ["jobs", "{{job_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Skills",
+      "item": [
+        {
+          "name": "List Skills",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/skills?search=Laravel", "host": ["{{base_url}}"], "path": ["skills"], "query": [{ "key": "search", "value": "Laravel" }] }
+          }
+        },
+        {
+          "name": "Create Skill",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kubernetes\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/skills", "host": ["{{base_url}}"], "path": ["skills"] }
+          }
+        },
+        {
+          "name": "Update Skill",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kubernetes (K8s)\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/skills/1", "host": ["{{base_url}}"], "path": ["skills", "1"] }
+          }
+        },
+        {
+          "name": "Delete Skill",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/skills/1", "host": ["{{base_url}}"], "path": ["skills", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resumes",
+      "item": [
+        {
+          "name": "Upload Resume (PDF)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "resume", "type": "file", "src": "" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/resumes", "host": ["{{base_url}}"], "path": ["resumes"] }
+          }
+        },
+        {
+          "name": "Get Resume Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/resumes/{{resume_id}}", "host": ["{{base_url}}"], "path": ["resumes", "{{resume_id}}"] }
+          }
+        },
+        {
+          "name": "Check Resume Processing Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/resumes/{{resume_id}}/status", "host": ["{{base_url}}"], "path": ["resumes", "{{resume_id}}", "status"] }
+          }
+        },
+        {
+          "name": "Download Resume PDF",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/resumes/{{resume_id}}/download", "host": ["{{base_url}}"], "path": ["resumes", "{{resume_id}}", "download"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Applications",
+      "item": [
+        {
+          "name": "Apply for Job",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resume_id\": {{resume_id}}\n}"
+            },
+            "url": { "raw": "{{base_url}}/jobs/{{job_id}}/apply", "host": ["{{base_url}}"], "path": ["jobs", "{{job_id}}", "apply"] }
+          }
+        },
+        {
+          "name": "List Applications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/applications?status=shortlisted&sort=score_desc",
+              "host": ["{{base_url}}"],
+              "path": ["applications"],
+              "query": [
+                { "key": "status", "value": "shortlisted" },
+                { "key": "sort", "value": "score_desc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Application Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/applications/{{application_id}}", "host": ["{{base_url}}"], "path": ["applications", "{{application_id}}"] }
+          }
+        },
+        {
+          "name": "Update Application Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"interview\",\n  \"remarks\": \"Applicant meets all technical bar requirements.\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/applications/{{application_id}}/status", "host": ["{{base_url}}"], "path": ["applications", "{{application_id}}", "status"] }
+          }
+        },
+        {
+          "name": "Get Application Audit History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/applications/{{application_id}}/history", "host": ["{{base_url}}"], "path": ["applications", "{{application_id}}", "history"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Interviews",
+      "item": [
+        {
+          "name": "Schedule Interview",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduled_at\": \"2026-10-15 14:00:00\",\n  \"duration\": 60,\n  \"meeting_link\": \"https://meet.google.com/xyz-uvw-rst\",\n  \"notes\": \"Technical system architecture review\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/applications/{{application_id}}/interviews", "host": ["{{base_url}}"], "path": ["applications", "{{application_id}}", "interviews"] }
+          }
+        },
+        {
+          "name": "List Interviews",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/interviews?status=scheduled", "host": ["{{base_url}}"], "path": ["interviews"], "query": [{ "key": "status", "value": "scheduled" }] }
+          }
+        },
+        {
+          "name": "Get Interview Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/interviews/{{interview_id}}", "host": ["{{base_url}}"], "path": ["interviews", "{{interview_id}}"] }
+          }
+        },
+        {
+          "name": "Reschedule Interview",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduled_at\": \"2026-10-15 16:00:00\",\n  \"duration\": 60,\n  \"status\": \"rescheduled\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/interviews/{{interview_id}}", "host": ["{{base_url}}"], "path": ["interviews", "{{interview_id}}"] }
+          }
+        },
+        {
+          "name": "Cancel Interview",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/interviews/{{interview_id}}/cancel", "host": ["{{base_url}}"], "path": ["interviews", "{{interview_id}}", "cancel"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Technical Tasks",
+      "item": [
+        {
+          "name": "Assign Technical Task",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Build Event-Driven Webhook Dispatcher\",\n  \"description\": \"Design an asynchronous webhook delivery pipeline with exponential backoff.\",\n  \"instructions\": \"Submit public GitHub repository.\",\n  \"due_at\": \"2026-10-25 18:00:00\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/applications/{{application_id}}/tasks", "host": ["{{base_url}}"], "path": ["applications", "{{application_id}}", "tasks"] }
+          }
+        },
+        {
+          "name": "List Tasks",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/tasks", "host": ["{{base_url}}"], "path": ["tasks"] }
+          }
+        },
+        {
+          "name": "Get Task Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/tasks/{{task_id}}", "host": ["{{base_url}}"], "path": ["tasks", "{{task_id}}"] }
+          }
+        },
+        {
+          "name": "Update Task Status (Candidate Starts: in_progress)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/tasks/{{task_id}}/status", "host": ["{{base_url}}"], "path": ["tasks", "{{task_id}}", "status"] }
+          }
+        },
+        {
+          "name": "Submit Task Solution",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"submission_url\": \"https://github.com/developer/webhook-dispatcher\",\n  \"submission_content\": \"Includes Redis queue worker, dead-letter retry logic, and test suite.\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/tasks/{{task_id}}/submit", "host": ["{{base_url}}"], "path": ["tasks", "{{task_id}}", "submit"] }
+          }
+        },
+        {
+          "name": "View Task Submissions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/tasks/{{task_id}}/submissions", "host": ["{{base_url}}"], "path": ["tasks", "{{task_id}}", "submissions"] }
+          }
+        },
+        {
+          "name": "Review Task Submission",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"accepted\",\n  \"review_notes\": \"Clean architecture, exceptional test coverage.\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/submissions/{{submission_id}}/review", "host": ["{{base_url}}"], "path": ["submissions", "{{submission_id}}", "review"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard Overview",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/dashboard/overview", "host": ["{{base_url}}"], "path": ["dashboard", "overview"] }
+          }
+        },
+        {
+          "name": "Get Pipeline Distribution",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/dashboard/pipeline", "host": ["{{base_url}}"], "path": ["dashboard", "pipeline"] }
+          }
+        },
+        {
+          "name": "Get Interviews Schedule Analytics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/dashboard/interviews", "host": ["{{base_url}}"], "path": ["dashboard", "interviews"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List User Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/notifications", "host": ["{{base_url}}"], "path": ["notifications"] }
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/notifications/some-uuid-id/read", "host": ["{{base_url}}"], "path": ["notifications", "some-uuid-id", "read"] }
+          }
+        },
+        {
+          "name": "Mark All Notifications as Read",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/notifications/read-all", "host": ["{{base_url}}"], "path": ["notifications", "read-all"] }
+          }
+        }
+      ]
+    }
+  ]
+}

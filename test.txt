@@ -1,0 +1,2 @@
+# TalentFlow Workspace
+Production-ready Laravel Recruitment & Resume Management System
