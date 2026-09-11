@@ -1855,6 +1855,10 @@ body {
 .tf-card-score { color: var(--primary-color); font-size: 10px; font-weight: 800; }
 .tf-card-job { color: var(--text-muted); font-size: 10px; line-height: 1.35; margin: 5px 0 9px; }
 .tf-card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tf-candidate-card.is-candidate-view { cursor: default; }
+.tf-candidate-card.is-candidate-view:hover { transform: none; box-shadow: none; border-color: var(--border-card); }
+@keyframes tfCardPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); } 50% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0.15); } }
+.tf-highlight-pulse { animation: tfCardPulse 0.8s ease-in-out 3; border-color: var(--primary-color) !important; }
 
 .tf-toast.success { border-left: 3px solid #8bd1aa; }
 .tf-toast.error { border-left: 3px solid #ef7654; }

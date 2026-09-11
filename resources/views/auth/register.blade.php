@@ -108,6 +108,7 @@
         const initials = user.name.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
         localStorage.setItem('tf_token', result.data.token);
         localStorage.setItem('tf_user', JSON.stringify({
+          id: user.id,
           name: user.name,
           email: user.email,
           role: result.data.role || 'candidate',

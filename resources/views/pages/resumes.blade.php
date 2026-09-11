@@ -18,8 +18,8 @@
         </div>
         <h4 style="font-size:15px; font-weight:700; margin-bottom:6px;">Drop a candidate PDF here</h4>
         <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px;">The system extracts details and scores the profile automatically.</p>
-        <input type="file" id="pdfFileInput" accept="application/pdf" style="display:none;" onchange="TF.simulateResumeUpload(event)">
-        <button class="tf-btn-outline" onclick="document.getElementById('pdfFileInput').click()">Browse Files</button>
+        <input type="file" id="pdfFileInput" accept="application/pdf,.pdf" style="display:none;" onchange="TF.uploadResume(event)">
+        <button type="button" class="tf-btn-outline" onclick="document.getElementById('pdfFileInput').click()">Browse Files</button>
       </div>
 
       <!-- Extraction Progress State -->

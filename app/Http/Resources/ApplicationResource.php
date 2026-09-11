@@ -15,6 +15,7 @@ class ApplicationResource extends JsonResource
             'job' => new JobResource($this->whenLoaded('job')),
             'candidate_id' => $this->candidate_id,
             'candidate' => new CandidateResource($this->whenLoaded('candidate')),
+            'candidate_name' => $this->candidate?->user?->name ?? $this->candidate?->name ?? 'Candidate',
             'resume_id' => $this->resume_id,
             'resume' => new ResumeResource($this->whenLoaded('resume')),
             'score' => (float) $this->score,

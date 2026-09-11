@@ -262,14 +262,21 @@ const TF = {
 
   // Initialize application
   init() {
-    if (!this.user) {
-      window.location.href = '/login';
-      return;
-    }
     this.bindEvents();
     this.renderHeader();
     this.loadNotifications();
     this.switchView('dashboard');
+  },
+
+  fillAndLogin(email, password) {
+    const emailInput = document.getElementById('loginEmail');
+    const passInput = document.getElementById('loginPassword');
+    if (emailInput && passInput) {
+      emailInput.value = email;
+      passInput.value = password;
+      const form = emailInput.closest('form');
+      if (form) form.dispatchEvent(new Event('submit', { cancelable: true }));
+    }
   },
 
   async loadDashboardData(period = this.dashboardPeriod) {
@@ -368,6 +375,34 @@ const TF = {
     window.location.href = '/login';
   },
 
+  // Helper to reliably extract candidate name across all API payloads and mock structures
+  getCandidateName(entity) {
+    if (!entity) return 'Candidate';
+    if (typeof entity === 'string') return entity;
+    if (entity.candidate_name) return entity.candidate_name;
+    const cand = entity.candidate || (entity.application ? entity.application.candidate : null);
+    if (cand) {
+      if (typeof cand === 'string') return cand;
+      if (cand.name) return cand.name;
+      if (cand.user?.name) return cand.user.name;
+    }
+    if (entity.user?.name) return entity.user.name;
+    if (entity.name && !entity.skills && !entity.description) return entity.name;
+    return 'Candidate';
+  },
+
+  // Helper to extract clean validation/error messages from Laravel responses
+  getErrorMessage(result, fallback = 'An unexpected error occurred.') {
+    if (!result) return fallback;
+    if (result.errors && typeof result.errors === 'object') {
+      const firstKey = Object.keys(result.errors)[0];
+      if (firstKey && Array.isArray(result.errors[firstKey]) && result.errors[firstKey].length) {
+        return result.errors[firstKey][0];
+      }
+    }
+    return result.message || fallback;
+  },
+
   // HTTP Helper for API requests
   async request(endpoint, options = {}) {
     const headers = {
@@ -382,6 +417,15 @@ const TF = {
         ...options,
         headers
       });
+
+      if (response.status === 401 && this.token) {
+        console.warn(`Unauthenticated on ${endpoint}. Resetting stored token.`);
+        this.token = '';
+        this.user = null;
+        localStorage.removeItem('tf_token');
+        localStorage.removeItem('tf_user');
+      }
+
       const data = await response.json();
       return data;
     } catch (err) {
@@ -452,6 +496,19 @@ const TF = {
       document.querySelectorAll('[data-current-user-first-name]').forEach(element => {
         element.textContent = firstName;
       });
+
+      const isCandidate = String(this.user.role || '').toLowerCase() === 'candidate';
+      const scheduleBtn = document.getElementById('btnOpenScheduleInterview');
+      if (scheduleBtn) {
+        scheduleBtn.style.display = isCandidate ? 'none' : '';
+      }
+    } else {
+      if (userNameEl) userNameEl.textContent = 'Guest Preview';
+      if (userRoleEl) userRoleEl.textContent = 'Sign In';
+      if (userAvatarEl) userAvatarEl.textContent = 'TF';
+      if (personaBadge) {
+        personaBadge.innerHTML = `<span style="color:#f59e0b;">●</span> Guest Explorer`;
+      }
     }
   },
 
@@ -605,8 +662,8 @@ const TF = {
       average_candidate_score: 0, published_jobs: 0, shortlisted_applications: 0,
       scheduled_interviews: 0, pipeline_counts: {}
     };
-    const isRecruiterOrAdmin = this.user.role === 'recruiter' || this.user.role === 'admin';
-    const isCandidate = String(this.user.role || '').toLowerCase() === 'candidate';
+    const isRecruiterOrAdmin = this.user?.role === 'recruiter' || this.user?.role === 'admin';
+    const isCandidate = String(this.user?.role || '').toLowerCase() === 'candidate';
     const pipeline = m.pipeline_counts || {};
     const pipelineTotal = Object.values(pipeline).reduce((total, count) => total + Number(count || 0), 0);
     const pipelineStage = (stage) => Number(pipeline[stage] || 0);
@@ -994,16 +1051,22 @@ const TF = {
     const sort = document.getElementById('dashboardApplicationSort')?.value || 'latest';
     const applications = this.liveData.applications
       .filter(application => {
-        const candidateName = application.candidate?.user?.name || '';
-        const jobTitle = application.job?.title || '';
-        return (!search || `${candidateName} ${jobTitle}`.toLowerCase().includes(search))
+        const candidateName = this.getCandidateName(application).toLowerCase();
+        const jobTitle = (application.job?.title || application.job_title || '').toLowerCase();
+        return (!search || `${candidateName} ${jobTitle}`.includes(search))
           && (!status || application.current_status === status)
           && (!jobId || String(application.job_id) === jobId);
       })
       .sort((left, right) => sort === 'score_desc' ? right.score - left.score : sort === 'score_asc' ? left.score - right.score : new Date(right.applied_at) - new Date(left.applied_at));
     const count = document.getElementById('dashboardApplicationCount');
-    if (count) count.textContent = `${applications.length} shown`;
-    target.innerHTML = applications.length ? `<div style="overflow-x:auto;"><table class="tf-table"><thead><tr><th>Candidate</th><th>Role</th><th>Score</th><th>Stage</th><th>Applied</th></tr></thead><tbody>${applications.map(application => `<tr><td>${application.candidate?.user?.name || 'Candidate'}</td><td>${application.job?.title || 'Role'}</td><td><strong>${application.score}/100</strong></td><td><span class="tf-pill-badge tf-pill-purple">${(application.current_status || '').replace('_', ' ')}</span></td><td>${application.applied_at ? new Date(application.applied_at).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div>` : '<p style="color:var(--text-muted); padding:16px 0;">No applications match these filters.</p>';
+    target.innerHTML = applications.length ? `<div style="overflow-x:auto;"><table class="tf-table"><thead><tr><th>Candidate</th><th>Role</th><th>Score</th><th>Stage</th><th>Applied</th></tr></thead><tbody>${applications.map(application => {
+      const candidateName = this.getCandidateName(application);
+      const jobTitle = application.job?.title || application.job_title || 'Role';
+      const scoreDisplay = (application.score !== null && application.score !== undefined) ? `${Number(application.score).toFixed(1)}/100` : '—';
+      const stage = (application.current_status || application.status || 'applied').replace(/_/g, ' ');
+      const appliedDate = application.applied_at ? new Date(application.applied_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+      return `<tr><td><strong>${candidateName}</strong></td><td>${jobTitle}</td><td><strong style="color:var(--primary-color);">${scoreDisplay}</strong></td><td><span class="tf-pill-badge tf-pill-purple">${stage}</span></td><td>${appliedDate}</td></tr>`;
+    }).join('')}</tbody></table></div>` : '<p style="color:var(--text-muted); padding:16px 0;">No applications match these filters.</p>';
   },
 
   // -------------------------------------------------------------
@@ -1019,7 +1082,7 @@ const TF = {
       return;
     }
 
-    const isRecruiterOrAdmin = this.user.role === 'recruiter' || this.user.role === 'admin';
+    const isRecruiterOrAdmin = this.user?.role === 'recruiter' || this.user?.role === 'admin';
     const jobs = this.liveData.jobs;
 
     container.innerHTML = `
@@ -1051,7 +1114,7 @@ const TF = {
               <h3 class="tf-job-card-title">${job.title}</h3>
               <div class="tf-job-card-meta">
                 <span>${job.required_experience || 0}+ years experience</span>
-                <span>${job.applications_count || 0} applicants</span>
+                <span>${job.applicants_count || 0} applicants</span>
               </div>
               <div class="tf-job-card-skills">
                 <span class="tf-job-card-skills-label">Skills</span>
@@ -1061,8 +1124,8 @@ const TF = {
             </div>
 
             <div class="tf-job-card-actions">
-              ${this.user.role === 'candidate' ? `
-                <button class="tf-btn-primary" style="width:100%;" onclick="TF.openApplyModal(${job.id}, '${job.title}')">Apply Now</button>
+              ${(!this.user || this.user.role === 'candidate') ? `
+                <button class="tf-btn-primary" style="width:100%;" onclick="TF.openApplyModal(${job.id})">Apply Now</button>
               ` : `
                 <button class="tf-btn-outline" style="flex:1;" onclick="TF.switchView('pipeline')">Applicants</button>
                 <button class="tf-btn-primary" onclick="TF.openEditJobModal(${job.id})">Edit</button>
@@ -1112,7 +1175,7 @@ const TF = {
   renderCandidateCenter() {
     const container = document.getElementById('view-candidates');
     if (!container) return;
-    const isCandidate = String(this.user.role || '').toLowerCase() === 'candidate';
+    const isCandidate = String(this.user?.role || '').toLowerCase() === 'candidate';
 
     if (!isCandidate && !this.liveData.applicationsLoaded) {
       container.innerHTML = '<div class="tf-card"><p>Loading candidates...</p></div>';
@@ -1216,7 +1279,7 @@ const TF = {
     const hint = document.getElementById('extractionHint');
     const candidateSelect = document.getElementById('resumeCandidateSelect');
     const candidateId = candidateSelect?.value || '';
-    if (this.user.role !== 'candidate' && !candidateId) {
+    if (this.user?.role !== 'candidate' && !candidateId) {
       this.toast('Select a candidate before uploading a resume.', 'error');
       return;
     }
@@ -1358,6 +1421,7 @@ const TF = {
       { key: 'hired', label: 'Hired / Offered' }
     ];
 
+    const isCandidate = String(this.user?.role || '').toLowerCase() === 'candidate';
     const applications = this.liveData.applications || [];
     const totalApplications = applications.length;
     const activeApplications = applications.filter(application => !['hired', 'rejected'].includes(application.current_status)).length;
@@ -1368,8 +1432,8 @@ const TF = {
     container.innerHTML = `
       <div class="tf-greeting-bar">
         <div class="tf-greeting-text">
-          <h2>Hiring Pipeline State Machine</h2>
-          <p>Live applications grouped by stage with guarded status transitions.</p>
+          <h2>${isCandidate ? 'Hiring Pipeline Status' : 'Hiring Pipeline State Machine'}</h2>
+          <p>${isCandidate ? 'Track real-time application stage and review progress.' : 'Live applications grouped by stage with guarded status transitions.'}</p>
         </div>
         <div class="tf-greeting-actions">
           <button class="tf-btn-outline" onclick="TF.refreshPipeline()">Refresh</button>
@@ -1377,7 +1441,7 @@ const TF = {
       </div>
 
       <div class="tf-pipeline-summary">
-        <div><span>Total applications</span><strong>${totalApplications}</strong></div>
+        <div><span>${isCandidate ? 'Your applications' : 'Total applications'}</span><strong>${totalApplications}</strong></div>
         <div><span>Active pipeline</span><strong>${activeApplications}</strong></div>
         <div><span>Average score</span><strong>${averageScore}<small>/100</small></strong></div>
       </div>
@@ -1396,9 +1460,9 @@ const TF = {
               </div>
 
               ${appsInStage.map(app => `
-                <div class="tf-candidate-card" onclick="TF.openTransitionModal(${app.id})">
+                <div class="tf-candidate-card ${isCandidate ? 'is-candidate-view' : ''}" data-app-id="${app.id}" ${!isCandidate ? `onclick="TF.openTransitionModal(${app.id})"` : ''} title="${isCandidate ? 'Candidate read-only view' : 'Click to advance stage'}">
                   <div class="tf-card-top">
-                    <span class="tf-card-name">${app.candidate?.user?.name || app.candidate_name || 'Candidate'}</span>
+                    <span class="tf-card-name">${this.getCandidateName(app)}</span>
                     <span class="tf-card-score">${Number(app.score || 0).toFixed(1)} pts</span>
                   </div>
                   <div class="tf-card-job">${app.job?.title || app.job_title || 'Open role'}</div>
@@ -1407,7 +1471,7 @@ const TF = {
                   </div>
                   <div class="tf-pipeline-card-footer">
                     <span>${app.resume?.extracted_data?.experience_years || app.experience || 0} yrs exp</span>
-                    <span>Manage</span>
+                    ${!isCandidate ? '<span>Manage</span>' : '<span class="tf-pill-badge tf-pill-muted">Under Review</span>'}
                   </div>
                 </div>
               `).join('')}
@@ -1436,6 +1500,7 @@ const TF = {
       return;
     }
 
+    const isCandidate = String(this.user?.role || '').toLowerCase() === 'candidate';
     const interviews = this.liveData.interviews;
     const upcoming = interviews.filter(interview => ['scheduled', 'confirmed'].includes(interview.status)).length;
     const completed = interviews.filter(interview => interview.status === 'completed').length;
@@ -1445,14 +1510,16 @@ const TF = {
       <div class="tf-greeting-bar">
         <div class="tf-greeting-text">
           <h2>Interview Scheduler & Conflict Guard</h2>
-          <p>Schedules candidate interviews with automatic overlap validation.</p>
+          <p>${isCandidate ? 'View scheduled interview rounds and meeting links for your applications.' : 'Schedules candidate interviews with automatic overlap validation.'}</p>
         </div>
         <div class="tf-greeting-actions">
           <button class="tf-btn-outline" onclick="TF.refreshInterviews()">Refresh</button>
-          <button class="tf-btn-primary" onclick="TF.openScheduleModal()">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-            Schedule Interview
-          </button>
+          ${!isCandidate ? `
+            <button class="tf-btn-primary" onclick="TF.openScheduleModal()">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              Schedule Interview
+            </button>
+          ` : ''}
         </div>
       </div>
 
@@ -1466,7 +1533,7 @@ const TF = {
         ${interviews.length ? interviews.map(interview => {
           const date = new Date(interview.scheduled_at);
           const status = interview.status || 'scheduled';
-          const candidateName = interview.application?.candidate?.name || interview.application?.candidate?.user?.name || 'Candidate';
+          const candidateName = this.getCandidateName(interview.application);
           const initials = candidateName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
           return `
           <div class="tf-interview-card">
@@ -1493,6 +1560,9 @@ const TF = {
             <div class="tf-interview-actions">
               ${interview.meeting_link ? `<a class="tf-btn-primary" href="${interview.meeting_link}" target="_blank" rel="noopener">Join meeting</a>` : '<span class="tf-interview-no-link">Meeting link pending</span>'}
               <button class="tf-btn-outline" onclick="TF.copyMeetingLink('${interview.meeting_link || ''}')">Copy link</button>
+              ${(this.user?.role === 'admin' || this.user?.role === 'recruiter') && status !== 'cancelled' ? `
+                <button class="tf-btn-outline" style="color:#ef4444; border-color:#fca5a5;" onclick="TF.cancelInterview(${interview.id})">Cancel</button>
+              ` : ''}
             </div>
           </div>
         `;
@@ -1526,6 +1596,19 @@ const TF = {
     } catch (error) {
       this.toast('Clipboard access was blocked. Open the link and copy it manually.', 'error');
     }
+  },
+
+  async cancelInterview(interviewId) {
+    if (!confirm('Are you sure you want to cancel this scheduled interview?')) return;
+    const result = await this.request(`/interviews/${interviewId}/cancel`, { method: 'PATCH' });
+    if (!result?.success) {
+      this.toast(this.getErrorMessage(result, 'Unable to cancel interview.'), 'error');
+      return;
+    }
+    this.toast('Interview cancelled successfully.', 'success');
+    this.liveData.interviewsLoaded = false;
+    await this.loadInterviews();
+    if (this.currentView === 'interviews') this.renderInterviews();
   },
 
   // -------------------------------------------------------------
@@ -1565,7 +1648,7 @@ const TF = {
       <div class="tf-task-grid">
         ${tasks.length ? tasks.map(t => {
           const application = t.application || {};
-          const candidate = application.candidate?.user?.name || 'Candidate';
+          const candidate = this.getCandidateName(application);
           const job = application.job?.title || 'Application';
           const submission = t.latest_submission;
           const dueDate = t.due_at ? new Date(t.due_at) : null;
@@ -1585,8 +1668,9 @@ const TF = {
               <span><strong>Submission</strong>${submission?.submission_url ? 'Ready to review' : 'Not submitted'}</span>
             </div>
             <div class="tf-task-actions">
-              ${submission?.submission_url ? `<a class="tf-btn-primary" href="${submission.submission_url}" target="_blank" rel="noopener">Review submission</a>` : '<span class="tf-task-pending">Waiting for submission</span>'}
-              <button class="tf-btn-outline" onclick="TF.toast('Task instructions are shown in the assessment details.', 'success')">Instructions</button>
+              ${submission?.submission_url ? `<a class="tf-btn-primary" href="${submission.submission_url}" target="_blank" rel="noopener">Review submission</a>` : ((!this.user || this.user?.role === 'candidate') ? `<button class="tf-btn-primary" onclick="TF.openSubmitTaskModal(${t.id})">Submit Solution</button>` : '<span class="tf-task-pending">Waiting for submission</span>')}
+              <button class="tf-btn-outline" onclick="TF.openTaskInstructions(${t.id})">Instructions</button>
+              <button class="tf-btn-outline" onclick="TF.openHiringFromTask(${t.id})" title="Open Hiring Pipeline for this candidate">Open Hiring</button>
             </div>
           </div>
         `;
@@ -1690,34 +1774,214 @@ const TF = {
   },
 
   openApplyModal(jobId, jobTitle) {
-    document.getElementById('applyModalJobTitle').textContent = jobTitle;
-    document.getElementById('applyModalJobId').value = jobId;
+    const job = this.liveData.jobs.find(j => j.id === jobId);
+    const title = job ? job.title : (jobTitle || 'Open Position');
+    const titleEl = document.getElementById('applyModalJobTitle');
+    const idEl = document.getElementById('applyModalJobId');
+    const nameInput = document.getElementById('applyModalFullName');
+    const emailInput = document.getElementById('applyModalEmail');
+    const phoneInput = document.getElementById('applyModalPhone');
+    const fileInput = document.getElementById('applyModalResumeFile');
+    const errEl = document.getElementById('applyModalError');
+
+    if (titleEl) titleEl.textContent = title;
+    if (idEl) idEl.value = jobId;
+    if (fileInput) fileInput.value = '';
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+    if (this.user) {
+      if (nameInput) nameInput.value = this.user.name || '';
+      if (emailInput) emailInput.value = this.user.email || '';
+    }
     this.openModal('modalApplyJob');
   },
 
-  handleApplySubmit(e) {
+  async handleApplySubmit(e) {
     e.preventDefault();
-    this.closeModal('modalApplyJob');
-    this.toast('Application and PDF resume submitted successfully! Queued for AI parsing.', 'success');
+    const jobId = document.getElementById('applyModalJobId')?.value;
+    const fileInput = document.getElementById('applyModalResumeFile');
+    const errEl = document.getElementById('applyModalError');
+    const submitBtn = document.getElementById('applyModalSubmit');
+    const file = fileInput?.files?.[0];
+
+    if (!jobId) {
+      this.toast('Please select a valid job to apply.', 'error');
+      return;
+    }
+
+    if (!this.token) {
+      if (errEl) {
+        errEl.textContent = 'Please sign in to submit your application. Use the Demo Candidate account.';
+        errEl.style.display = 'block';
+      } else {
+        this.toast('Please sign in as a candidate to apply.', 'error');
+      }
+      this.openAuthModal();
+      return;
+    }
+
+    if (this.user?.role && this.user.role !== 'candidate') {
+      const msg = `Signed in as ${this.user.role}. Only candidates can apply to jobs. Please switch to a candidate account.`;
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+      } else {
+        this.toast(msg, 'error');
+      }
+      return;
+    }
+
+    if (!file) {
+      if (errEl) {
+        errEl.textContent = 'Please upload a PDF resume file.';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      if (errEl) {
+        errEl.textContent = 'Only PDF files are accepted.';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      if (errEl) {
+        errEl.textContent = 'Resume PDF must be less than 5 MB.';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+
+    if (errEl) errEl.style.display = 'none';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting & Parsing...';
+    }
+
+    const formData = new FormData();
+    formData.append('resume', file);
+
+    try {
+      const response = await fetch(`${this.apiBase}/jobs/${jobId}/apply`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${this.token}`
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        const errorMsg = this.getErrorMessage(result, 'Failed to submit application.');
+        if (errEl) {
+          errEl.textContent = errorMsg;
+          errEl.style.display = 'block';
+        } else {
+          this.toast(errorMsg, 'error');
+        }
+        return;
+      }
+
+      // Application created and scored!
+      const newApp = result.data;
+      this.closeModal('modalApplyJob');
+      this.toast('Application submitted successfully! Your record is now active on the dashboard.', 'success');
+
+      // Update local applications cache
+      if (newApp) {
+        const existingIdx = this.liveData.applications.findIndex(a => a.id === newApp.id);
+        if (existingIdx >= 0) {
+          this.liveData.applications[existingIdx] = newApp;
+        } else {
+          this.liveData.applications.unshift(newApp);
+        }
+      }
+
+      // Refresh live dashboard data and table
+      this.liveData.dashboardLoaded = false;
+      this.liveData.applicationsLoaded = true;
+      await this.loadDashboardData();
+
+      // Show dashboard
+      this.switchView('dashboard');
+
+    } catch (err) {
+      console.error('Application submission error:', err);
+      if (errEl) {
+        errEl.textContent = 'Network or server error submitting application.';
+        errEl.style.display = 'block';
+      } else {
+        this.toast('Unable to submit application right now.', 'error');
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Application';
+      }
+    }
   },
 
   openTransitionModal(appId) {
+    if (String(this.user?.role || '').toLowerCase() === 'candidate') {
+      this.toast('Candidates are not authorized to manage pipeline stages.', 'error');
+      return;
+    }
+
     const app = this.liveData.applications.find(item => item.id === appId);
     if (!app) return;
 
-    document.getElementById('transitionCandidateName').textContent = app.candidate?.user?.name || app.candidate_name || 'Candidate';
+    document.getElementById('transitionCandidateName').textContent = this.getCandidateName(app);
     document.getElementById('transitionJobTitle').textContent = app.job?.title || app.job_title || 'Open role';
-    document.getElementById('transitionCurrentStatus').textContent = (app.current_status || app.status).toUpperCase();
+    const curr = (app.current_status || app.status || 'applied').toLowerCase();
+    document.getElementById('transitionCurrentStatus').textContent = curr.toUpperCase();
     document.getElementById('transitionAppId').value = appId;
+
+    // Dynamically populate allowed next stages
+    const select = document.getElementById('transitionTargetStatus');
+    if (select) {
+      const allLabels = {
+        applied: 'Applied',
+        screening: 'Screening',
+        shortlisted: 'Shortlisted',
+        interview: 'Interview',
+        technical_task: 'Technical Task',
+        hired: 'Hired',
+        rejected: 'Rejected'
+      };
+      const allowed = Array.isArray(app.allowed_next_statuses) && app.allowed_next_statuses.length
+        ? app.allowed_next_statuses
+        : (curr === 'applied' ? ['screening', 'rejected'] :
+           curr === 'screening' ? ['shortlisted', 'rejected'] :
+           curr === 'shortlisted' ? ['interview', 'rejected'] :
+           curr === 'interview' ? ['technical_task', 'shortlisted', 'rejected'] :
+           curr === 'technical_task' ? ['hired', 'rejected'] : ['rejected']);
+
+      select.innerHTML = allowed.map(st => `<option value="${st}">${allLabels[st] || st.replace('_', ' ')}</option>`).join('');
+    }
+
+    const errEl = document.getElementById('transitionError');
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
 
     this.openModal('modalTransition');
   },
 
   async handleTransitionSubmit(e) {
     e.preventDefault();
-    const appId = parseInt(document.getElementById('transitionAppId').value);
+    if (String(this.user?.role || '').toLowerCase() === 'candidate') {
+      this.toast('Candidates are not authorized to advance pipeline stages.', 'error');
+      this.closeModal('modalTransition');
+      return;
+    }
+
+    const appId = parseInt(document.getElementById('transitionAppId').value, 10);
     const targetStatus = document.getElementById('transitionTargetStatus').value;
     const remarks = document.getElementById('transitionRemarks').value;
+    const errEl = document.getElementById('transitionError');
 
     const app = this.liveData.applications.find(item => item.id === appId);
     if (!app) return;
@@ -1725,33 +1989,71 @@ const TF = {
       method: 'PATCH',
       body: JSON.stringify({ status: targetStatus, remarks })
     });
+
     if (!result?.success) {
-      this.toast(result?.message || 'Unable to update application status.', 'error');
+      const msg = this.getErrorMessage(result, 'Unable to update application status.');
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+      } else {
+        this.toast(msg, 'error');
+      }
       return;
     }
+
     const index = this.liveData.applications.findIndex(item => item.id === appId);
     if (index >= 0) this.liveData.applications[index] = { ...app, ...result.data };
     this.closeModal('modalTransition');
-    this.toast(`Moved ${app.candidate?.user?.name || 'candidate'} to ${targetStatus.toUpperCase()}`, 'success');
+    this.toast(`Moved ${this.getCandidateName(app)} to ${targetStatus.toUpperCase()}`, 'success');
     if (this.currentView === 'pipeline') this.renderPipeline();
+    if (this.currentView === 'dashboard') {
+      this.liveData.dashboardLoaded = false;
+      this.loadDashboardData();
+    }
   },
 
-  openScheduleModal() {
+  async openScheduleModal() {
+    if (String(this.user?.role || '').toLowerCase() === 'candidate') {
+      this.toast('Candidates cannot schedule interviews. Interviews must be booked by recruiters.', 'error');
+      return;
+    }
+
+    if (!this.liveData.applications.length) {
+      const result = await this.requestAllPages('/applications?sort=latest');
+      if (result?.data) {
+        this.liveData.applications = result.data;
+        this.liveData.applicationsLoaded = true;
+      }
+    }
     const candidateSelect = document.getElementById('interviewApplication');
     if (candidateSelect) {
       candidateSelect.innerHTML = this.liveData.applications.length
         ? this.liveData.applications.map(application => {
-          const name = application.candidate?.user?.name || `Application #${application.id}`;
+          const name = this.getCandidateName(application);
           const title = application.job?.title || 'Open role';
           return `<option value="${application.id}">${name} - ${title}</option>`;
         }).join('')
         : '<option value="">No applications available</option>';
     }
+
+    // Default to tomorrow
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const dateInput = document.getElementById('interviewDate');
+    if (dateInput && (!dateInput.value || dateInput.value < tomorrow)) {
+      dateInput.value = tomorrow;
+    }
+
     this.openModal('modalSchedule');
   },
 
   async handleScheduleSubmit(e) {
     e.preventDefault();
+    if (String(this.user?.role || '').toLowerCase() === 'candidate') {
+      this.toast('Candidates cannot schedule interviews.', 'error');
+      this.closeModal('modalSchedule');
+      return;
+    }
+
     const applicationId = document.getElementById('interviewApplication').value;
     const date = document.getElementById('interviewDate').value;
     const time = document.getElementById('interviewTime').value;
@@ -1765,7 +2067,7 @@ const TF = {
     const result = await this.request(`/applications/${applicationId}/interviews`, {
       method: 'POST',
       body: JSON.stringify({
-        interviewer_id: this.user.id || undefined,
+        interviewer_id: this.user?.id || undefined,
         scheduled_at: `${date}T${time}:00`,
         duration: 60,
         meeting_link: meetingLink
@@ -1773,7 +2075,7 @@ const TF = {
     });
 
     if (!result?.success) {
-      const message = result?.errors?.scheduled_at?.[0] || result?.message || 'Unable to schedule this interview.';
+      const message = this.getErrorMessage(result, 'Unable to schedule this interview.');
       this.toast(message, 'error');
       return;
     }
@@ -1782,6 +2084,125 @@ const TF = {
     this.liveData.interviewsLoaded = false;
     this.toast(`Interview booked successfully on ${date} at ${time}.`, 'success');
     if (this.currentView === 'interviews') this.renderInterviews();
+  },
+
+  activeInstructionTaskId: null,
+
+  openTaskInstructions(taskId) {
+    const task = (this.liveData.tasks || []).find(t => t.id === taskId);
+    if (!task) return;
+
+    this.activeInstructionTaskId = taskId;
+    const application = task.application || {};
+    const candidateName = this.getCandidateName(application);
+    const jobTitle = application.job?.title || 'Open Role';
+    const dueDate = task.due_at ? new Date(task.due_at) : null;
+    const formattedDue = dueDate && !Number.isNaN(dueDate.getTime())
+      ? dueDate.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+      : 'No deadline set';
+
+    const titleEl = document.getElementById('taskInstructionsTitle');
+    const subtitleEl = document.getElementById('taskInstructionsSubtitle');
+    const candidateEl = document.getElementById('taskInstructionsCandidate');
+    const jobEl = document.getElementById('taskInstructionsJob');
+    const dueEl = document.getElementById('taskInstructionsDue');
+    const contentEl = document.getElementById('taskInstructionsContent');
+
+    if (titleEl) titleEl.textContent = task.title || 'Technical Assessment Instructions';
+    if (subtitleEl) subtitleEl.textContent = `Status: ${(task.status || 'pending').replace('_', ' ').toUpperCase()}`;
+    if (candidateEl) candidateEl.textContent = candidateName;
+    if (jobEl) jobEl.textContent = jobTitle;
+    if (dueEl) dueEl.textContent = formattedDue;
+    if (contentEl) contentEl.textContent = task.instructions || task.description || 'Complete the assigned technical task and submit your repository or solution link.';
+
+    this.openModal('modalTaskInstructions');
+  },
+
+  openHiringFromTaskModal() {
+    if (this.activeInstructionTaskId) {
+      this.openHiringFromTask(this.activeInstructionTaskId);
+    } else {
+      this.closeModal('modalTaskInstructions');
+      this.switchView('pipeline');
+    }
+  },
+
+  openHiringFromTask(taskId) {
+    this.closeModal('modalTaskInstructions');
+    const task = (this.liveData.tasks || []).find(t => t.id === taskId);
+    const candidateName = task ? this.getCandidateName(task.application || task) : 'Candidate';
+    this.switchView('pipeline');
+    this.toast(`Opened Hiring Pipeline for ${candidateName}`, 'success');
+
+    if (task?.application_id) {
+      setTimeout(() => {
+        const card = document.querySelector(`[data-app-id="${task.application_id}"]`);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('tf-highlight-pulse');
+          setTimeout(() => card.classList.remove('tf-highlight-pulse'), 3000);
+        }
+      }, 300);
+    }
+  },
+
+  openSubmitTaskModal(taskId) {
+    const task = this.liveData.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    document.getElementById('submitTaskId').value = taskId;
+    document.getElementById('submitTaskModalTitle').textContent = task.title || 'Technical Assessment';
+    document.getElementById('submitTaskUrl').value = '';
+    document.getElementById('submitTaskNotes').value = '';
+    const errEl = document.getElementById('submitTaskError');
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+    this.openModal('modalSubmitTask');
+  },
+
+  async handleSubmitTask(e) {
+    e.preventDefault();
+    const taskId = document.getElementById('submitTaskId').value;
+    const url = document.getElementById('submitTaskUrl').value.trim();
+    const notes = document.getElementById('submitTaskNotes').value.trim();
+    const errEl = document.getElementById('submitTaskError');
+    const submitBtn = document.getElementById('submitTaskBtn');
+
+    if (!taskId) return;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+    }
+
+    const result = await this.request(`/tasks/${taskId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({
+        submission_url: url,
+        submission_content: notes
+      })
+    });
+
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Assessment';
+    }
+
+    if (!result?.success) {
+      const msg = this.getErrorMessage(result, 'Unable to submit this task.');
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+      } else {
+        this.toast(msg, 'error');
+      }
+      return;
+    }
+
+    this.closeModal('modalSubmitTask');
+    this.toast('Technical task submitted successfully!', 'success');
+    this.liveData.tasksLoaded = false;
+    await this.loadTasks();
+    if (this.currentView === 'tasks') this.renderTasks();
   },
 
   toggleDashboardFilter() {

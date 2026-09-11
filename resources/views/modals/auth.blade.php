@@ -19,6 +19,15 @@
         <button type="submit" class="tf-btn-primary" style="width:100%; justify-content:center;">Sign In</button>
       </form>
 
+      <!-- 1-Click Demo Accounts -->
+      <div style="padding-top:14px; border-top:1px solid var(--border-subtle, #e5e7eb);">
+        <p style="font-size:11px; font-weight:600; color:var(--text-muted, #6b7280); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Instant Demo Account</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+          <button type="button" class="tf-btn-outline" style="font-size:11px; padding:6px 4px; text-align:center; justify-content:center;" onclick="TF.fillAndLogin('admin@talentflow.local', 'password')">Admin</button>
+          <button type="button" class="tf-btn-outline" style="font-size:11px; padding:6px 4px; text-align:center; justify-content:center;" onclick="TF.fillAndLogin('recruiter1@talentflow.local', 'password')">Recruiter</button>
+          <button type="button" class="tf-btn-outline" style="font-size:11px; padding:6px 4px; text-align:center; justify-content:center;" onclick="TF.fillAndLogin('candidate1@talentflow.local', 'password')">Candidate</button>
+        </div>
+      </div>
     </div>
     <div class="tf-modal-footer">
       <button type="button" class="tf-btn-outline" onclick="TF.logout()">Sign Out</button>

@@ -50,6 +50,16 @@
           </div>
           <p id="pageLoginError" class="tf-login-error" role="alert"></p>
           <button id="pageLoginSubmit" class="tf-btn-primary tf-login-submit" type="submit">Sign In</button>
+
+          <!-- 1-Click Demo Accounts -->
+          <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border-subtle, #e5e7eb);">
+            <p style="font-size:11px; font-weight:600; color:var(--text-muted, #6b7280); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Instant Demo Login</p>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+              <button type="button" class="tf-btn-outline" style="font-size:11px; padding:6px 4px; text-align:center; justify-content:center;" onclick="quickLogin('admin@talentflow.local', 'password')">Admin</button>
+              <button type="button" class="tf-btn-outline" style="font-size:11px; padding:6px 4px; text-align:center; justify-content:center;" onclick="quickLogin('recruiter1@talentflow.local', 'password')">Recruiter</button>
+              <button type="button" class="tf-btn-outline" style="font-size:11px; padding:6px 4px; text-align:center; justify-content:center;" onclick="quickLogin('candidate1@talentflow.local', 'password')">Candidate</button>
+            </div>
+          </div>
         </form>
 
         <p class="tf-login-switch">New to TalentFlow? <a href="/register">Create an account</a></p>
@@ -64,6 +74,12 @@
     const passwordInput = document.getElementById('pageLoginPassword');
     const errorMessage = document.getElementById('pageLoginError');
     const submitButton = document.getElementById('pageLoginSubmit');
+
+    function quickLogin(email, password) {
+      emailInput.value = email;
+      passwordInput.value = password;
+      loginForm.dispatchEvent(new Event('submit', { cancelable: true }));
+    }
 
     loginForm.addEventListener('submit', async event => {
       event.preventDefault();
@@ -93,6 +109,7 @@
         const initials = user.name.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
         localStorage.setItem('tf_token', result.data.token);
         localStorage.setItem('tf_user', JSON.stringify({
+          id: user.id,
           name: user.name,
           email: user.email,
           role: result.data.role || user.role,

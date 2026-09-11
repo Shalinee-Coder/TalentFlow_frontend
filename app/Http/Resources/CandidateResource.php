@@ -14,6 +14,11 @@ class CandidateResource extends JsonResource
             'user_id' => $this->user_id,
             'name' => $this->user?->name,
             'email' => $this->user?->email,
+            'user' => $this->user ? [
+                'id' => $this->user->id,
+                'name' => $this->user->name,
+                'email' => $this->user->email,
+            ] : null,
             'phone' => $this->phone,
             'total_experience' => (float) $this->total_experience,
             'highest_education' => $this->highest_education,

@@ -130,8 +130,9 @@ class ApplicationSeeder extends Seeder
 
             // Completed interview with Priya Nair
             Interview::firstOrCreate(
-                ['application_id' => $app1->id, 'scheduled_at' => Carbon::now()->subDay()->setHour(14)->setMinute(0)],
+                ['application_id' => $app1->id],
                 [
+                    'scheduled_at' => Carbon::now()->subDay()->setHour(14)->setMinute(0),
                     'interviewer_id' => $recruiter1->id,
                     'duration' => 60,
                     'meeting_link' => 'https://meet.google.com/aarav-priya-tech-interview',
@@ -224,8 +225,9 @@ class ApplicationSeeder extends Seeder
             );
 
             Interview::firstOrCreate(
-                ['application_id' => $app2->id, 'scheduled_at' => Carbon::now()->addDay()->setHour(11)->setMinute(30)],
+                ['application_id' => $app2->id],
                 [
+                    'scheduled_at' => Carbon::now()->addDay()->setHour(11)->setMinute(30),
                     'interviewer_id' => $recruiter1->id,
                     'duration' => 45,
                     'meeting_link' => 'https://meet.google.com/ananya-vue-screen',
@@ -297,8 +299,9 @@ class ApplicationSeeder extends Seeder
             );
 
             Interview::firstOrCreate(
-                ['application_id' => $app3->id, 'scheduled_at' => Carbon::now()->addDays(2)->setHour(15)->setMinute(0)],
+                ['application_id' => $app3->id],
                 [
+                    'scheduled_at' => Carbon::now()->addDays(2)->setHour(15)->setMinute(0),
                     'interviewer_id' => $recruiter1->id,
                     'duration' => 60,
                     'meeting_link' => 'https://meet.google.com/rohan-architecture-round',
@@ -406,8 +409,9 @@ class ApplicationSeeder extends Seeder
                 );
 
                 Interview::firstOrCreate(
-                    ['application_id' => $application->id, 'scheduled_at' => Carbon::now()->addDays(3)->setHour(10)->setMinute(0)],
+                    ['application_id' => $application->id],
                     [
+                        'scheduled_at' => Carbon::now()->addDays(3)->setHour(10)->setMinute(0),
                         'interviewer_id' => $recruiter1->id,
                         'duration' => 30,
                         'meeting_link' => 'https://meet.google.com/talentflow-screening',

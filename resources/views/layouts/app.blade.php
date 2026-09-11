@@ -40,6 +40,8 @@
   @include('modals.apply-job')
   @include('modals.transition')
   @include('modals.schedule-interview')
+  @include('modals.submit-task')
+  @include('modals.task-instructions')
   @include('modals.auth')
 
   <!-- Core JavaScript Application -->

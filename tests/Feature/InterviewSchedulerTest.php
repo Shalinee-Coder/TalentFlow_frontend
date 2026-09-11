@@ -159,4 +159,26 @@ class InterviewSchedulerTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonPath('success', true);
     }
+
+    public function test_candidate_cannot_schedule_interview(): void
+    {
+        $candidateUser = User::factory()->candidate()->create();
+        $job = Job::factory()->create();
+        $app = Application::factory()->create(['job_id' => $job->id]);
+
+        $scheduledAt = Carbon::now()->addDay()->setHour(10)->setMinute(0)->setSecond(0);
+
+        $payload = [
+            'interviewer_id' => $candidateUser->id,
+            'scheduled_at' => $scheduledAt->toIso8601String(),
+            'duration' => 60,
+            'meeting_link' => 'https://meet.google.com/abc-def-ghi',
+            'notes' => 'Candidate trying to schedule',
+        ];
+
+        $response = $this->actingAs($candidateUser, 'sanctum')
+            ->postJson("/api/v1/applications/{$app->id}/interviews", $payload);
+
+        $response->assertStatus(403);
+    }
 }

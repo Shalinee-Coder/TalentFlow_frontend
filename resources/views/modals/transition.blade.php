@@ -31,6 +31,7 @@
           <label>Audit Remarks</label>
           <textarea id="transitionRemarks" class="tf-input" rows="3" placeholder="Enter evaluation feedback or rationale for audit trail..."></textarea>
         </div>
+        <p id="transitionError" style="display:none; color:#c74631; font-size:12px; margin-top:8px; padding:8px 12px; background:#fff2f0; border-radius:6px;"></p>
       </div>
       <div class="tf-modal-footer">
         <button type="button" class="tf-btn-outline" onclick="TF.closeModal('modalTransition')">Cancel</button>
