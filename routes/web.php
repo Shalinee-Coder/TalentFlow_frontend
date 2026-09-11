@@ -1,24 +1,17 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Artisan;
 
-// 1. Temporary Route to Seed Database
-Route::get('/force-seed', function () {
-    Artisan::call('db:seed', ['--force' => true]);
-    return 'Database Seeded Successfully! Now go to /login';
-});
-
-// 2. Root Redirect
+// Root redirect
 Route::get('/', function () {
-    return redirect()->route('login');
+    return redirect('/login');
 });
 
-// 3. Auth Routes
+// Direct Auth Views
 Route::view('/login', 'auth.login')->name('login');
 Route::view('/register', 'auth.register')->name('register');
 
-// 4. Dashboard Route
+// Direct Dashboard Route (No Auth Middleware for Now)
 Route::get('/dashboard', function () {
     return view('app');
 })->name('dashboard');
