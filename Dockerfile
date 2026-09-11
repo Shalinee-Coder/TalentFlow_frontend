@@ -44,7 +44,8 @@ RUN chmod -R 775 storage bootstrap/cache
 
 EXPOSE 10000
 
-CMD php artisan migrate --force && \
+# CHANGED: Added --seed to populate admin/initial data automatically
+CMD php artisan migrate --force --seed && \
     php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache && \
