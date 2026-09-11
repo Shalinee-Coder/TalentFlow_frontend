@@ -17,9 +17,29 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // 1. Render HTTPS Reverse Proxy Fix (Fixes 307/302 Redirect Loop)
+        $middleware->trustProxies(
+            at: '*',
+            headers: Request::HEADER_X_FORWARDED_FOR |
+                     Request::HEADER_X_FORWARDED_HOST |
+                     Request::HEADER_X_FORWARDED_PORT |
+                     Request::HEADER_X_FORWARDED_PROTO |
+                     Request::HEADER_X_FORWARDED_AWS_ELB
+        );
+
+        // 2. Auth Routes CSRF Bypass (Fixes 419 CSRF Token Mismatch)
+        $middleware->validateCsrfTokens(except: [
+            'login',
+            'register',
+            'api/*',
+        ]);
+
+        // 3. Custom Middleware Binds
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureRole::class,
         ]);
+
+        // 4. Stateful API for Sanctum
         $middleware->statefulApi();
     })
     ->withExceptions(function (Exceptions $exceptions) {
