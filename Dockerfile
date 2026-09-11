@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     libicu-dev \
     libxml2-dev \
+    libonig-dev \
     && docker-php-ext-install \
     pdo \
     pdo_mysql \
@@ -40,7 +41,8 @@ RUN chmod -R 775 storage bootstrap/cache
 
 EXPOSE 10000
 
-CMD php artisan config:cache && \
+CMD php artisan migrate --force && \
+    php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache && \
     php artisan serve --host=0.0.0.0 --port=10000
