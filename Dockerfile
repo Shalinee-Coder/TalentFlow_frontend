@@ -26,9 +26,12 @@ RUN composer install \
     --no-dev \
     --optimize-autoloader \
     --no-interaction \
-    --prefer-dist
+    --prefer-dist \
+    --no-scripts
 
 COPY . .
+
+RUN composer run-script post-autoload-dump
 
 RUN mkdir -p \
     storage/framework/cache \
